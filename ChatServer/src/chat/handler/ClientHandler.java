@@ -13,6 +13,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.Timer;
+import java.util.TimerTask;
 
 public class ClientHandler {
 
@@ -21,6 +22,9 @@ public class ClientHandler {
     private ObjectInputStream in;
     private ObjectOutputStream out;
     private String username;
+
+    // флаг авторизовался ли клиент
+    private boolean isSuccessAuth;
 
     public ClientHandler(MyServer myServer, Socket clientSocket) {
         this.myServer = myServer;
@@ -31,10 +35,27 @@ public class ClientHandler {
         in = new ObjectInputStream(clientSocket.getInputStream());
         out = new ObjectOutputStream(clientSocket.getOutputStream());
 
-//        new Timer().schedule();
+//        Запускаем TimerTask на закрытие сокета через 120 сек.
+//        если клиент не авторизуется
+        Timer timer = new Timer(true);
+        timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                if(!isSuccessAuth) {
+                    try {
+                        clientSocket.close();
+                    } catch (IOException e) {
+                        System.out.println("Ошибка закрытия клиентского сокета");
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }, 120_000);
         new Thread(() -> {
             try {
                 authentication();
+                // если клиент авторизовался отменяем timer
+                timer.cancel();
                 readMessage();
             } catch (IOException e) {
                 System.out.println(e.getMessage());
@@ -54,7 +75,7 @@ public class ClientHandler {
             }
             if (command.getType() == CommandType.AUTH) {
 
-                boolean isSuccessAuth = processAuthCommand(command);
+                isSuccessAuth = processAuthCommand(command);
                 if (isSuccessAuth) {
                     break;
                 }

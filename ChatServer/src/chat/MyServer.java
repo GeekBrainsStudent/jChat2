@@ -90,7 +90,6 @@ public class MyServer {
                 continue;
             }
           client.sendMessage(command);
-
         }
     }
 

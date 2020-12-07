@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.net.SocketException;
 
 public class Network {
 
@@ -121,7 +122,22 @@ public class Network {
     public String sendAuthCommand(String login, String password) {
         try {
             Command authCommand = Command.authCommand(login, password);
-            dataOutputStream.writeObject(authCommand);
+
+            try {
+                dataOutputStream.writeObject(authCommand);
+            } catch (SocketException e) {
+                // Если возникла ошибка при отправке и если выводит сообщение "broken pipe"
+                // значит с высокой долей вероятности сервер разорвал соединение после 120 сек. ожидания
+                // да и в любом случае при такой ошибке, надо перезайти обновить сокет на стороне сервера
+                // Понимаю, что можно было отправить с сервера какую-нибудь команду, например добавив новую
+                // но такое решение тоже имеет место быть и не требует излишних телодвижений )
+                if(e.getMessage().equals("Broken pipe")) {
+                    return "Сервер разорвал соединение, " +
+                            "перезайдите в программу и повторите попытку.";
+                }
+                System.out.println("Ошибка сокета");
+                e.printStackTrace();
+            }
 
             Command command = readCommand();
             if (command == null) {
